@@ -3,6 +3,7 @@
 -export([convert/1, perimeter/1]).
 -export([min/1, max/1, min_max/1]).
 -export([swedish_date/0]).
+-export([fore_back/1]).
 
 -compile({no_auto_import, [min/2, max/2]}).
 
@@ -91,3 +92,22 @@ swedish_date() ->
     {Y,M,D} = erlang:date(),
     erlang:integer_to_list((Y - 2000) * 10000 + M * 100 + D).
 
+%% Write a function which starts 2 processes, and sends a message M times forewards and backwards between them. After the messages have been sent the processes should terminate gracefully.
+fore_back(M) ->
+    {Pid1, Pid2} = {spawn(?MODULE, msg_sender, [M]),
+		    spawn(?MODULE, msg_sender, [M])},
+    Pid0 = self(),
+    Pid1 ! {?MODULE, Pid0, Pid2},
+    Pid2 ! {?MODULE, Pid0, Pid1},
+    Pid1 ! {?MODULE, go},
+    wait_fore_back(),
+    wait_fore_back().
+
+wait_fore_back() ->
+    receive
+	{?MODULE, _Pid, complete} ->
+	    ok;
+	{?MODULE, PidSending, PidReceiving, Value} ->
+	    io:fwrite("~p sends ~n", [PidSending, PidReceiving, Value]),
+	    wait_fore_back()
+    end.
