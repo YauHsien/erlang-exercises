@@ -3,7 +3,7 @@
 -export([convert/1, perimeter/1]).
 -export([min/1, max/1, min_max/1]).
 -export([swedish_date/0]).
--export([fore_back/1]).
+-export([fore_back/1, msg_sender/2]).
 
 -compile({no_auto_import, [min/2, max/2]}).
 
@@ -94,20 +94,64 @@ swedish_date() ->
 
 %% Write a function which starts 2 processes, and sends a message M times forewards and backwards between them. After the messages have been sent the processes should terminate gracefully.
 fore_back(M) ->
-    {Pid1, Pid2} = {spawn(?MODULE, msg_sender, [M]),
-		    spawn(?MODULE, msg_sender, [M])},
+    Pid0 = self(),
+    io:fwrite("me, ~p~n", [Pid0]),
+    {Pid1, Pid2} = {spawn(?MODULE, msg_sender, [M, Pid0]),
+		    spawn(?MODULE, msg_sender, [M, Pid0])},
     Pid0 = self(),
     Pid1 ! {?MODULE, Pid0, Pid2},
     Pid2 ! {?MODULE, Pid0, Pid1},
-    Pid1 ! {?MODULE, go},
-    wait_fore_back(),
-    wait_fore_back().
+    Pid1 ! {?MODULE, Pid0, go},
+    wait_fore_back(Pid0, nil).
 
-wait_fore_back() ->
+wait_fore_back(Controller, Pid) ->
     receive
-	{?MODULE, _Pid, complete} ->
-	    ok;
+	{?MODULE, Pid1, Msg} when Msg == complete orelse Msg == bad_end ->
+	    io:fwrite("Message from ~p: ~p~n", [Pid1, Msg]),
+	    Pid1 ! {?MODULE, Controller, stop},
+	    case {Pid, Pid1} of
+		{nil, _} ->
+		    wait_fore_back(Controller, Pid1);
+		_ ->
+		    ok
+	    end;
 	{?MODULE, PidSending, PidReceiving, Value} ->
-	    io:fwrite("~p sends ~n", [PidSending, PidReceiving, Value]),
-	    wait_fore_back()
+	    io:fwrite("~p sends to ~p with message ~p ~n", [PidSending, PidReceiving, Value]),
+	    wait_fore_back(Controller, Pid);
+	Msg ->
+	    io:fwrite("message ~p passes by~n", [Msg])
+    end.
+
+msg_sender(M, Controller) ->
+    receive
+	{?MODULE, Controller, Recipient} ->
+	    receive
+		{?MODULE, Controller, go} ->
+		    msg_sender(M, Controller, Recipient);
+		{?MODULE, Recipient, N} ->
+		    Controller ! {?MODULE, Recipient, self(), N},
+		    msg_sender(M, Controller, Recipient)
+	    after
+		2000 ->
+		    {?MODULE, Controller, bad_end}
+	    end
+    after
+	5000 ->
+	    {?MODULE, Controller, bad_end}
+    end.
+
+msg_sender(M, Controller, Recipient) ->
+    Recipient ! {?MODULE, self(), M},
+    receive
+	{?MODULE, Controller, stop} ->
+	    io:fwrite("~p stops~n", [self()]);
+	{?MODULE, Recipient, 0} ->
+	    Recipient ! {?MODULE, self(), 0},
+	    Controller ! {?MODULE, self(), complete};
+	{?MODULE, Recipient, N} ->
+	    Controller ! {?MODULE, Recipient, self(), N},
+	    msg_sender(M-1, Controller, Recipient)
+    after
+	2000 ->
+	    {?MODULE, Controller, bad_end}
     end.
