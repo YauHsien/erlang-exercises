@@ -1,5 +1,5 @@
 -module('puzzle-8-queens').
--export([queens/0,queens/2]).
+-export([queens/0]).
 
 -spec queens() -> [[integer()]].
 
