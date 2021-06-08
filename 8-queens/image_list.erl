@@ -1,7 +1,12 @@
 -module(image_list).
 -export(
-  [ generate/4
+  [ generate/4,
+    generate/1
   ]).
+-define(W, "w.png").
+-define(B, "b,png").
+-define(QiB, "qib.png").
+-define(QiW, "qiw.png").
 
 -spec generate(F :: function(), Num :: integer(), GapSize :: integer(), Data :: list()) -> ok.
 
@@ -53,5 +58,46 @@ generate(F, Num, GapSize, Data) ->
                    ),
 
     logger:alert("~p~n", [Data3]),
-    
+
     ok.
+
+-spec generate(Queens :: [ 1|2|3|4|5|6|7|8 ]) -> [[string()]].
+
+generate(Queens) when erlang:length(Queens) =:= 8 ->
+    {_, List} =
+        lists:foldl( fun(C, {R,Acc}) ->
+                             {R+1, [lists:reverse(generate(R,C,8))|Acc]}
+                     end,
+                     {1, []},
+                     Queens
+                   ),
+    lists:reverse(List).
+
+-spec generate(R :: integer(), C :: integer(), S :: integer()) -> [string()].
+
+generate(R, C, S) when S =:= 8 ->
+    Rrem2 = R rem 2,
+    {_, List} =
+        lists:foldl( fun(_, {M,Acc}) when M =:= C ->
+                             Tile =
+                                 case {Rrem2, M rem 2} of
+                                     {1, 1} -> ?QiW;
+                                     {0, 1} -> ?QiB;
+                                     {1, 0} -> ?QiB;
+                                     {0, 0} -> ?QiW
+                                 end,
+                             {M+1, [Tile|Acc]};
+                        (_, {M,Acc}) ->
+                             Tile =
+                                 case {Rrem2, M rem 2} of
+                                     {1, 1} -> ?W;
+                                     {0, 1} -> ?B;
+                                     {1, 0} -> ?B;
+                                     {0, 0} -> ?W
+                                 end,
+                             {M+1, [Tile|Acc]}
+                     end,
+                     {1, []},
+                     string:chars($a, S)
+                   ),
+    List.
