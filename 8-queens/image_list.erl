@@ -1,7 +1,7 @@
 -module(image_list).
 -export(
   [ generate/4,
-    generate_image/4
+    generate_image/3
   ]).
 -include_lib("wx/include/wx.hrl").
 -define(W, "w.png").
@@ -60,7 +60,6 @@ generate(F, Num, GapSize, Data) ->
 
 -spec generate_image( QueensSet :: [[ 1|2|3|4|5|6|7|8 ]],
                       CountInRow :: integer(),
-                      GapSize :: float(),
                       FileName :: string()
                     ) -> [[string()]].
 
@@ -69,33 +68,29 @@ generate(F, Num, GapSize, Data) ->
 %% GapSize:    依棋格寬度，指明一個比例值，表示二欄之間的間距。
 
 % 使用這段程式之前，要先執行 wx:new() 啟動 Wx 環境
-generate_image([Queens|_]=QueensSet, CountInRow, GapSize, FileName) when is_list(Queens) andalso erlang:length(Queens) =:= 8 ->
+generate_image([Queens|_]=QueensSet, CountInRow, FileName) when is_list(Queens) andalso erlang:length(Queens) =:= 8 ->
 
-    wxBitmap:loadFile( B =wxBitmap:new(), ?B, [{type,?wxBITMAP_TYPE_PNG}]),
-    wxBitmap:loadFile( W = wxBitmap:new(), ?W, [{type,?wxBITMAP_TYPE_PNG}]),
-    wxBitmap:loadFile( QiB = wxBitmap:new(), ?QiB, [{type,?wxBITMAP_TYPE_PNG}]),
-    wxBitmap:loadFile( QiW = wxBitmap:new(), ?QiW, [{type,?wxBITMAP_TYPE_PNG}]),
+    B = wxBitmap:new(?B, [{type,?wxBITMAP_TYPE_PNG}]),
+    W = wxBitmap:new(?W, [{type,?wxBITMAP_TYPE_PNG}]),
+    QiB = wxBitmap:new(?QiB, [{type,?wxBITMAP_TYPE_PNG}]),
+    QiW = wxBitmap:new(?QiW, [{type,?wxBITMAP_TYPE_PNG}]),
 
     TileWidth = wxBitmap:getWidth(B),
-    GapSize1 = list_to_integer(float_to_list( TileWidth * GapSize, [{decimals,0}])),
-
     BoardWidth = BoardHeight = TileWidth * 8,
-    ImageWidth = CountInRow * BoardWidth + (CountInRow-1) * GapSize1,
 
-    Count =
-        erlang:length(QueensSet) div CountInRow +
-        case (erlang:length(QueensSet) rem CountInRow) of 0 -> 0; _ -> 1 end,
-    ImageHeight = Count * BoardWidth + (Count-1) * GapSize1,
+    DC = wxMemoryDC:new(),
 
-    OutBitmap = wxBitmap:new( OutImage = wxImage:new({ImageWidth,ImageHeight})),
-    wxMemoryDC:selectObject( DC = wxMemoryDC:new(), OutBitmap),
+    logger:alert("~p~n", [{ lists:map(fun(X) -> wxBitmap:isOk(X) end, [B,W,QiB,QiW]),
+                            wxMemoryDC:isOk(DC)
+                          }]),
 
     generate( fun({R, L}) ->
-                      lists:map( fun({gap, GapSize2}) ->
+                      lists:map( fun({gap, _gap_size_1}) ->
                                          ok;
-                                    ({C, Board}) ->
-                                         lists:map( fun(Row) ->
-                                                            lists:map( fun({R1,C1,FN}) ->
+                                    ({_board_column, Board}) ->
+                                         wxMemoryDC:selectObject(DC, OutBitmap = wxBitmap:new({BoardWidth, BoardHeight})),
+                                         lists:map( fun({_row_column, Row}) ->
+                                                            lists:map( fun({R1, C1, FN}) ->
                                                                                wxDC:drawBitmap(
                                                                                  DC,
                                                                                  case FN of
@@ -104,47 +99,37 @@ generate_image([Queens|_]=QueensSet, CountInRow, GapSize, FileName) when is_list
                                                                                      ?QiB -> QiB;
                                                                                      ?QiW -> QiW
                                                                                  end,
-                                                                                 {(BoardHeight+GapSize1) * C + (C1-1) * TileWidth,
-                                                                                  (BoardWidth+GapSize1) * R + (R1-1) * TileWidth
-                                                                                 }
-                                                                                )
+                                                                                 { (C1-1) * TileWidth,
+                                                                                   (R1-1) * TileWidth
+                                                                                 })
                                                                        end,
-                                                                       Row
-                                                                     )
+                                                                       Row)
                                                     end,
-                                                    Board
-                                                  )
+                                                    Board),
+                                         wxBitmap:saveFile(OutBitmap, io_lib:format(FileName,[R]), ?wxBITMAP_TYPE_PNG),
+                                         wxBitmap:destroy(OutBitmap)
                                  end,
-                                 % 由資料轉換為貼圖
-
-                                 L
-                               )
+                                 L)
               end,
-              % 由資料轉換為貼圖
-
               CountInRow,
-              GapSize1,
+              _gap_size = 0,
+              lists:map(fun generate/1, QueensSet)),
 
-              lists:map(fun generate/1, QueensSet)
-            ),
-
-    wxBitmap:saveFile(OutBitmap, FileName, ?wxBITMAP_TYPE_PNG),
-    wxBitmap:destroy(OutBitmap),
     wxBitmap:destroy(B),
     wxBitmap:destroy(W),
     wxBitmap:destroy(QiB),
     wxBitmap:destroy(QiW),
-    wxImage:destroy(OutImage),
 
     QueensSet.
 
 -spec generate( Queens :: [ 1|2|3|4|5|6|7|8 ]
-              ) -> [[string()]].
+              ) ->
+          [[{Index :: integer(), FileName :: string()}]].
 
 generate(Queens) when is_list(Queens) andalso erlang:length(Queens) =:= 8 ->
     {_, List} =
         lists:foldl( fun(C, {R,Acc}) ->
-                             {R+1, [lists:reverse(generate(R,C,8))|Acc]}
+                             {R+1, [{R,lists:reverse(generate(R,C,8))}|Acc]}
                      end,
                      {1, []},
                      Queens
