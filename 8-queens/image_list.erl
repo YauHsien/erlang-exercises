@@ -104,8 +104,8 @@ generate_image([Queens|_]=QueensSet, CountInRow, GapSize, FileName) when is_list
                                                                                      ?QiB -> QiB;
                                                                                      ?QiW -> QiW
                                                                                  end,
-                                                                                 {(BoardHeight+GapSize1) * C + C1 * TileWidth,
-                                                                                  (BoardWidth+GapSize1) * R + R1 * TileWidth
+                                                                                 {(BoardHeight+GapSize1) * C + (C1-1) * TileWidth,
+                                                                                  (BoardWidth+GapSize1) * R + (R1-1) * TileWidth
                                                                                  }
                                                                                 )
                                                                        end,
@@ -166,7 +166,7 @@ generate(R, C, S) when S =:= 8 ->
                                      {1, 0} -> ?QiB;
                                      {0, 0} -> ?QiW
                                  end,
-                             {M+1, [{R,C,Tile}|Acc]};
+                             {M+1, [{R,M,Tile}|Acc]};
                         (_, {M,Acc}) ->
                              Tile =
                                  case {Rrem2, M rem 2} of
@@ -175,7 +175,7 @@ generate(R, C, S) when S =:= 8 ->
                                      {1, 0} -> ?B;
                                      {0, 0} -> ?W
                                  end,
-                             {M+1, [{R,C,Tile}|Acc]}
+                             {M+1, [{R,M,Tile}|Acc]}
                      end,
                      {1, []},
                      string:chars($a, S)

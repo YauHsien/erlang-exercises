@@ -1,5 +1,8 @@
 -module('puzzle-8-queens').
--export([queens/0]).
+-export(
+   [ queens/0,
+     queens/2
+   ]).
 
 -spec queens() -> [[integer()]].
 
@@ -29,20 +32,7 @@ queens(0, State) ->
     State;
 
 queens(N, OldState) when 1 =< N andalso N =< 8 ->
-    State =
-        lists:foldl(
-          fun({up,P}, Acc) ->
-                  [{up,P-1}|Acc];
-             ({direct,P}, Acc) ->
-                  [{direct,P}|Acc];
-             ({down,P}, Acc) ->
-                  [{down,P+1}|Acc];
-             ({pos,P}, Acc) ->
-                  [{up,P-1},{direct,P},{down,P+1}|Acc]
-          end,
-          [],
-          OldState
-         ),
+    State = next(OldState),
     States =
         lists:filter(
           fun([]) -> false; (_) -> true end,
@@ -52,11 +42,11 @@ queens(N, OldState) when 1 =< N andalso N =< 8 ->
                         proplists:get_all_values(up, State) ++
                         proplists:get_all_values(direct, State) ++
                         proplists:get_all_values(down, State),
-                    case lists:any(fun(M1) when M1 == M -> true; (_) -> false end, Cases) of
+                    case lists:any(fun(M1) when M1 =:= M -> true; (_) -> false end, Cases) of
                         true ->
                             [];
                         false ->
-                            [{pos,M}|State]
+                            [{pos,M}|next(State)]
                     end
             end,
             [1,2,3,4,5,6,7,8]
@@ -72,3 +62,18 @@ queens(N, OldState) when 1 =< N andalso N =< 8 ->
         _ ->
             lists:append(Results)
     end.
+
+next(State) ->
+    lists:foldl(
+      fun({up,P}, Acc) ->
+              [{up,P-1}|Acc];
+         ({direct,P}, Acc) ->
+              [{direct,P}|Acc];
+         ({down,P}, Acc) ->
+              [{down,P+1}|Acc];
+         ({pos,P}, Acc) ->
+              [{up,P-1},{direct,P},{down,P+1}|Acc]
+      end,
+      [],
+      State
+     ).
